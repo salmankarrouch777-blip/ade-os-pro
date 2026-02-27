@@ -12,42 +12,6 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import ExecutionEngine from "@/components/dashboard/ExecutionEngine";
 import HistoryDrawer from "@/components/dashboard/HistoryDrawer";
 
-// --- INYECTAR ESTE COMPONENTE EN TU PAGE.TSX ---
-function AutopilotBanner() {
-  const [alert, setAlert] = useState<any>(null);
-
-  useEffect(() => {
-    // Bucle de radar: Escanea la base de datos cada 5 segundos
-    const scanRadar = setInterval(async () => {
-      const res = await fetch('/api/webhooks/erp/latest');
-      const data = await res.json();
-      if (data.alert) setAlert(data.alert);
-    }, 5000);
-    return () => clearInterval(scanRadar);
-  }, []);
-
-  if (!alert) return null;
-
-  return (
-    <div className="w-full bg-red-900/90 border border-red-500 text-white p-4 mb-6 rounded flex items-center justify-between shadow-lg shadow-red-500/20 z-50 animate-pulse">
-      <div>
-        <h3 className="font-bold uppercase tracking-widest text-sm text-red-200">⚠️ ALERTA ERP DETECTADA (MACHINE-TO-MACHINE)</h3>
-        <p className="text-lg">{alert.objetivo}</p>
-      </div>
-      <button 
-        onClick={() => {
-          // Aquí inyectarías la alerta en tu estado principal para verla en pantalla
-          alert("Dictamen cargado en el sistema táctico.");
-          setAlert(null); // Ocultar banner
-        }}
-        className="bg-red-600 hover:bg-red-500 px-6 py-2 rounded font-bold transition-all"
-      >
-        REVISAR DICTAMEN IA
-      </button>
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const { isLoaded, user } = useUser();
   const [mounted, setMounted] = useState(false);
@@ -80,7 +44,7 @@ export default function Dashboard() {
     setTimeout(() => setToast({ show: false, msg: "", type: "default" }), 5000);
   };
 
-  // POLLING DE ALERTAS ERP (cada 10 segundos)
+  // POLLING DE ALERTAS ERP
   useEffect(() => {
     if (!mounted) return;
 
@@ -95,7 +59,7 @@ export default function Dashboard() {
           showToast("🚨 Nueva alerta ERP detectada", "error");
         }
       } catch (error) {
-        // Silencio operativo en fallos de polling
+        // Silencio operativo
       }
     };
 
@@ -105,10 +69,14 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [mounted, erpAlert?.id]);
 
+  // LECTURA DETERMINISTA (Sin Regex ni adivinanzas léxicas)
+  const alertSku = erpAlert?.erp_sku || erpAlert?.sku || "DESCONOCIDO";
+  const alertQty = erpAlert?.erp_cantidad || erpAlert?.cantidad || "0";
+
   const handleErpAutoExecute = () => {
     if (!erpAlert) return;
     
-    const alertPayload = `Alerta ERP: Stock crítico detectado. SKU: ${erpAlert.sku}, Cantidad: ${erpAlert.cantidad}. ${erpAlert.mensaje || 'Se requiere acción inmediata para asegurar suministro.'}`;
+    const alertPayload = erpAlert.objetivo || `Alerta ERP: Stock crítico detectado. SKU: ${alertSku}, Cantidad: ${alertQty}. Se requiere acción inmediata.`;
     
     setObjetivo(alertPayload);
     setErpAlert(null);
@@ -138,7 +106,7 @@ export default function Dashboard() {
   const loadPastDictamen = (payload: any) => {
     setCurrentData(payload);
     setStatus('success');
-    setBookingStatus('idle'); // Resetea estado transaccional al cargar histórico
+    setBookingStatus('idle'); 
     setBookingResult(null);
     setIsHistoryOpen(false);
     showToast("✅ Dictamen recuperado desde memoria segura.", "success");
@@ -214,7 +182,7 @@ export default function Dashboard() {
     }
   };
 
-  // PROTOCOLO DE EJECUCIÓN LOGÍSTICA (BOTÓN DEL PÁNICO)
+  // PROTOCOLO DE EJECUCIÓN LOGÍSTICA
   const executeTacticalPlan = async () => {
     setBookingStatus('processing');
     showToast("Iniciando protocolo de conexión EDI con Transitario...", "default");
@@ -258,7 +226,6 @@ export default function Dashboard() {
   return (
     <div className="flex h-screen bg-[#050505] text-slate-300 font-sans overflow-hidden relative selection:bg-[#00E5FF]/30 selection:text-[#00E5FF]">
       
-      {/* MOTOR CSS */}
       <style dangerouslySetInnerHTML={{__html: `
         .ade-card { background: #0A0A0A; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); }
         .ade-card-green { background: #05130D; border: 1px solid rgba(16, 185, 129, 0.2); }
@@ -281,7 +248,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* BANNER DE ALERTA ERP (Fijo en la parte superior) */}
+      {/* BANNER DE ALERTA ERP */}
       {erpAlert && (
         <div className="fixed top-0 left-0 right-0 z-[10000] bg-[#130505] border-b border-rose-500/50 shadow-[0_4px_20px_rgba(244,63,94,0.3)]">
           <div className="max-w-[1400px] mx-auto px-6 md:px-8 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -290,21 +257,18 @@ export default function Dashboard() {
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA ERP: STOCK CRÍTICO</span>
                 <p className="text-[13px] text-white font-medium leading-relaxed">
-                  {erpAlert.mensaje || `SKU ${erpAlert.sku}: Stock bajo (${erpAlert.cantidad} unidades). Se requiere acción inmediata.`}
+                  {erpAlert.mensaje || `SKU ${alertSku}: Stock bajo (${alertQty} unidades). Se requiere acción inmediata.`}
                 </p>
-                {erpAlert.sku && (
-                  <div className="flex items-center gap-4 mt-1 text-[11px] text-slate-400">
-                    <span>SKU: <span className="font-mono text-white">{erpAlert.sku}</span></span>
-                    {erpAlert.cantidad && <span>Cantidad: <span className="font-bold text-white">{erpAlert.cantidad}</span></span>}
-                  </div>
-                )}
+                <div className="flex items-center gap-4 mt-1 text-[11px] text-slate-400">
+                  <span>SKU: <span className="font-mono text-white">{alertSku}</span></span>
+                  <span>Cantidad: <span className="font-bold text-white">{alertQty}</span></span>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3 shrink-0">
               <button
                 onClick={() => setErpAlert(null)}
                 className="text-slate-400 hover:text-white transition-colors p-2"
-                aria-label="Cerrar alerta"
               >
                 <X size={18} />
               </button>
@@ -322,7 +286,7 @@ export default function Dashboard() {
 
       <div className="absolute top-[-10%] right-[-5%] w-[40vw] h-[40vw] bg-[#00E5FF] opacity-[0.02] blur-[150px] rounded-full pointer-events-none z-0"></div>
 
-      {/* PANEL LATERAL DE GOBERNANZA */}
+      {/* PANEL LATERAL */}
       <Sidebar
         objetivo={objetivo}
         setObjetivo={setObjetivo}
@@ -333,7 +297,7 @@ export default function Dashboard() {
         onFetchHistory={fetchHistory}
       />
 
-      {/* ÁREA CENTRAL DE INTELIGENCIA */}
+      {/* ÁREA CENTRAL */}
       <main className={`flex-1 flex flex-col h-full overflow-hidden bg-[#000000] relative ${erpAlert ? 'pt-[76px]' : ''}`}>
         
         <header className="h-[70px] px-8 flex items-center justify-between z-10 shrink-0 border-b border-white/5 relative z-40 bg-[#000000]">
@@ -353,7 +317,6 @@ export default function Dashboard() {
 
         <div className="flex-1 overflow-y-auto px-8 pb-16 pt-8 w-full custom-scrollbar relative z-10">
           
-          {/* VISTAS DE ESTADO */}
           {status === 'idle' && (
             <div className="max-w-[700px] mx-auto flex flex-col items-center justify-center h-full animate-fade-in text-center opacity-40 pointer-events-none">
               <Target size={64} className="text-cyan-900 mb-6"/>
@@ -385,7 +348,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* MATRIZ DE RESULTADOS */}
           {(status === 'success' || (status === 'loading' && currentData)) && (
             <div className="animate-fade-in flex flex-col w-full max-w-[1200px] mx-auto gap-6 pb-12">
               
@@ -411,7 +373,6 @@ export default function Dashboard() {
               </div>
 
               <div className="flex flex-col lg:flex-row gap-6">
-                 {/* TARJETA VERDE: DICTAMEN Y BOTÓN DEL PÁNICO */}
                  <ExecutionEngine
                    dictamen={dictamen}
                    bookingStatus={bookingStatus}
@@ -492,7 +453,6 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {/* SIMULADOR PREDICTIVO */}
                  <div className="ade-card p-8 bg-[#0A0A0A]">
                    <div className="flex justify-between items-end mb-8">
                      <div className="flex items-center gap-2">
@@ -519,7 +479,6 @@ export default function Dashboard() {
                    </div>
                  </div>
 
-                 {/* DIRECTORIO DE ENTIDADES */}
                  <div className="flex flex-col gap-4">
                    <span className="text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 pl-2"><Building2 size={14} className="text-[#00E5FF]"/> DIRECTORIO DE ENTIDADES</span>
                    <div className="flex flex-col gap-4">
@@ -541,12 +500,8 @@ export default function Dashboard() {
 
             </div>
           )}
-
         </div>
 
-        {/* ========================================================= */}
-        {/* PANEL LATERAL DESPLEGABLE DE HISTORIAL INSTITUCIONAL */}
-        {/* ========================================================= */}
         <HistoryDrawer
           isOpen={isHistoryOpen}
           historyData={historyData}

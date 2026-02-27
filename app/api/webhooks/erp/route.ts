@@ -37,14 +37,16 @@ export async function POST(req: Request) {
     const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
     const jsonPayload = JSON.parse(cleanText);
 
-    // 3. Persistencia en Base de Datos (Inyección de Agente M2M)
+    // 3. Persistencia Estructural (Datos Deterministas)
     const { error } = await supabase
       .from('dictamenes_b2b')
       .insert([{
-        user_id: 'SYSTEM_AUTOPILOT', // Resolución quirúrgica del constraint NOT-NULL
+        user_id: 'SYSTEM_AUTOPILOT', 
         objetivo: objetivoSintetizado,
         payload: jsonPayload,
-        status: 'AUTO_GENERATED'
+        status: 'AUTO_GENERATED',
+        erp_sku: sku,                     // Asignación estricta de columna
+        erp_cantidad: quantity_required   // Asignación estricta de columna
       }]);
 
     if (error) throw new Error(`Bloqueo en Supabase: ${error.message}`);
@@ -52,7 +54,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "SUCCESS" }, { status: 200 });
 
   } catch (error: any) {
-    // Exposición cruda del error en la respuesta HTTP
     return NextResponse.json({ 
       error: "Fallo de ejecución", 
       detalle_tecnico: error.message 
