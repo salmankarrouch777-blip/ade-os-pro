@@ -7,7 +7,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function POST(req: Request) {
   try {
     // Busca el último dictamen generado por la máquina, no por humanos
     const { data, error } = await supabase
