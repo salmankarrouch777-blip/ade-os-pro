@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     console.log(`[AUTOPILOTO] Ingesta completada. Analizando SKU: ${sku}...`);
 
     const { text } = await generateText({
-      model: google('gemini-2.5-pro'),
+      model: google('gemini-2.5-flash'),
       prompt: `Actúa como Director de Cadena de Suministro. Responde estrictamente en formato JSON válido, sin Markdown. Analiza esta crisis: ${objetivoSintetizado}. 
       El JSON debe tener esta estructura:
       {
