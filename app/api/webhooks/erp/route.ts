@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     const objetivoSintetizado = `ALERTA ERP AUTOMÁTICA: Rotura inminente SKU ${sku}. Faltan ${quantity_required} en ${location}. Genera ruta de importación aérea.`;
 
-    // 1. Invocación del Modelo Flash
+    // 1. Invocación del Modelo Flash (Baja latencia)
     const { text } = await generateText({
       model: google('gemini-2.5-flash'),
       prompt: `Actúa como Director de Cadena de Suministro. Responde estrictamente en formato JSON válido. NO uses Markdown, NO incluyas bloques de código ni la palabra "json". 
@@ -37,10 +37,11 @@ export async function POST(req: Request) {
     const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
     const jsonPayload = JSON.parse(cleanText);
 
-    // 3. Persistencia en Base de Datos
+    // 3. Persistencia en Base de Datos (Inyección de Agente M2M)
     const { error } = await supabase
       .from('dictamenes_b2b')
       .insert([{
+        user_id: 'SYSTEM_AUTOPILOT', // Resolución quirúrgica del constraint NOT-NULL
         objetivo: objetivoSintetizado,
         payload: jsonPayload,
         status: 'AUTO_GENERATED'
