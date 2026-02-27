@@ -16,40 +16,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Estructura no reconocida." }, { status: 400 });
     }
 
-    const objetivoSintetizado = `ALERTA ERP AUTOMÁTICA: Rotura de stock inminente para SKU ${sku}. Faltan ${quantity_required} unidades en ${location}. Genera una ruta de importación aérea de emergencia.`;
+    const objetivoSintetizado = `ALERTA ERP AUTOMÁTICA: Rotura inminente SKU ${sku}. Faltan ${quantity_required} en ${location}. Genera ruta de importación aérea.`;
 
-    console.log(`[AUTOPILOTO] Ingesta completada. Analizando SKU: ${sku}...`);
-
+    // 1. Invocación del Modelo Flash
     const { text } = await generateText({
       model: google('gemini-2.5-flash'),
-      prompt: `Actúa como Director de Cadena de Suministro. Responde estrictamente en formato JSON válido, sin Markdown. Analiza esta crisis: ${objetivoSintetizado}. 
-      El JSON debe tener esta estructura:
+      prompt: `Actúa como Director de Cadena de Suministro. Responde estrictamente en formato JSON válido. NO uses Markdown, NO incluyas bloques de código ni la palabra "json". 
+      Estructura obligatoria:
       {
-        "dictamen": "String con la decisión",
-        "confidence": Número entre 0 y 100,
-        "carrier": "Nombre del transportista",
-        "eta": "Tiempo estimado",
-        "coste_inaccion": Número
-      }`,
+        "dictamen": "String",
+        "confidence": 99,
+        "carrier": "String",
+        "eta": "String",
+        "coste_inaccion": 1000
+      }
+      Analiza: ${objetivoSintetizado}`,
     });
 
+    // 2. Limpieza de Markdown (Evasión de SyntaxError)
+    const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const jsonPayload = JSON.parse(cleanText);
+
+    // 3. Persistencia en Base de Datos
     const { error } = await supabase
       .from('dictamenes_b2b')
       .insert([{
         objetivo: objetivoSintetizado,
-        payload: JSON.parse(text),
+        payload: jsonPayload,
         status: 'AUTO_GENERATED'
       }]);
 
-    if (error) throw new Error(`Fallo en persistencia: ${error.message}`);
+    if (error) throw new Error(`Bloqueo en Supabase: ${error.message}`);
 
-    return NextResponse.json({ 
-      status: "SUCCESS", 
-      message: "Incidencia resuelta en segundo plano."
-    }, { status: 200 });
+    return NextResponse.json({ status: "SUCCESS" }, { status: 200 });
 
   } catch (error: any) {
-    console.error("[CRITICAL ERROR]", error);
-    return NextResponse.json({ error: "Colapso del motor Autopiloto." }, { status: 500 });
+    // Exposición cruda del error en la respuesta HTTP
+    return NextResponse.json({ 
+      error: "Fallo de ejecución", 
+      detalle_tecnico: error.message 
+    }, { status: 500 });
   }
 }
