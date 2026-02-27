@@ -1,0 +1,15 @@
+@import "tailwindcss";
+/* 🔥 Aquí estaba el fallo. Ahora salta solo UN nivel hacia atrás (a la raíz) */
+@config "../tailwind.config.ts";
+
+body {
+  background-color: #030C1E;
+  color: #f8fafc;
+  overflow-x: hidden;
+}
+
+@media print {
+  body { background-color: #ffffff !important; color: #000000 !important; }
+  .print-hidden { display: none !important; }
+  * { print-color-adjust: exact !important; }
+}
